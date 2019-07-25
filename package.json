@@ -1,0 +1,47 @@
+{
+  "name": "dcorp-proposal-confidence",
+  "version": "0.1.0",
+  "description": "Dcorp proposal; Confidence vote",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^12.6.8",
+    "bignumber.js": "^9.0.0",
+    "solhint": "^2.1.2",
+    "eslint": "^6.1.0",
+    "@typescript-eslint/parser": "^1.13.0",
+    "solidity-coverage": "^0.6.3",
+    "ts-generator": "^0.0.8",
+    "ts-node": "^8.3.0",
+    "typechain": "^0.3.19",
+    "typescript": "^3.5.3",
+    "truffle": "^5.0.28",
+    "truffle-assertions": "^0.9.1",
+    "truffle-typings": "^1.0.8"
+  },
+  "scripts": {
+    "compile:truffle": "truffle compile",
+    "compile:contracts": "ts-generator ./ts-generator.json",
+    "compile:ts": "tsc --declaration",
+    "compile": "npm run compile:ts & npm run compile:truffle && npm run compile:contracts",
+    "migrate": "truffle migrate --reset",
+    "linter:contracts": "solhint contracts/**/*.sol",
+    "linter:ts": "eslint {migrations,test}/**",
+    "linter": "npm run linter:contracts & npm run linter:ts",
+    "testrpc:boot": "docker run -d -p 8545:8545 --name testrpc trufflesuite/ganache-cli:next",
+    "testrpc:destroy": "docker stop testrpc && docker rm testrpc",
+    "test:contracts": "truffle test --network testing",
+    "test": "npm run testrpc:boot && npm run test:contracts && npm run testrpc:destroy"
+  },
+  "keywords": [
+    "dcorp",
+    "bullex",
+    "confidence"
+  ],
+  "author": "Frank Bonnet",
+  "license": "MIT"
+}
