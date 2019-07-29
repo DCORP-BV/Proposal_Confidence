@@ -24,7 +24,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
     enum Stages {
         Deploying,
         Deployed,
-        Dissolved
+        Executed
     }
 
     struct Balance {
@@ -38,6 +38,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
 
     // Settings
     uint public constant CLAIMING_DURATION = 60 days;
+    uint public constant WITHDRAW_DURATION = 60 days;
     uint public constant DISSOLVEMENT_AMOUNT = 1000 ether;
 
     // Alocated balances
@@ -58,6 +59,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
     uint public claimTotalWeight;
     uint public claimTotalEther;
     uint public claimDeadline;
+    uint public withdrawDeadline;
     
 
     /**
@@ -126,6 +128,25 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
         require(claimDeadline > 0 && now > claimDeadline, "m:only_after_claiming_period");
         _;
     }
+
+
+    /**
+     * Require that the withdraw period for the proposal has
+     * not yet ended
+     */
+    modifier only_during_withdraw_period() {
+        require(withdrawDeadline > 0 && now <= withdrawDeadline, "m:only_during_withdraw_period");
+        _;
+    }
+
+
+    /**
+     * Require that the withdraw period for the proposal has ended
+     */
+    modifier only_after_withdraw_period() {
+        require(withdrawDeadline > 0 && now > withdrawDeadline, "m:only_after_withdraw_period");
+        _;
+    }
     
 
     /**
@@ -168,12 +189,12 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
 
 
     /**
-     * Returns whether a proposal is dissolved or not
+     * Returns whether the proposal is executed
      *
-     * @return Whether the proposal is executed
+     * @return Whether the proposal is deployed
      */
-    function isDissolved() public view returns (bool) {
-        return stage == Stages.Dissolved;
+    function isExecuted() public view returns (bool) {
+        return stage == Stages.Executed;
     }
 
 
@@ -261,38 +282,17 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
 
 
     /**
-     * Gets the claiming duration, the amount of time claiming 
-     * is allowed
-     *
-     * @return Claiming duration
-     */
-    function getClaimDuration() public pure returns (uint) {              
-        return CLAIMING_DURATION;
-    }
-
-
-    /**
-     * Gets the claiming deadline, the timestamp until when sending 
-     * DRPU and DRPS to 
-     *
-     * @return Claiming deadline
-     */
-    function getClaimDeadline() public pure returns (uint) {              
-        return CLAIMING_DURATION;
-    }
-
-
-    /**
      * Executes the proposal
      *
      * Dissolves DCORP Decentralized and allows the ether to be withdrawn
      *
      * Should only be called after the claiming period
      */
-    function execute() public only_owner only_at_stage(Stages.Deployed) only_after_claiming_period {
+    function execute() public only_at_stage(Stages.Deployed) only_after_claiming_period {
         
-        // Mark as dissolved
-        stage = Stages.Dissolved;
+        // Mark as executed
+        stage = Stages.Executed;
+        withdrawDeadline = now + WITHDRAW_DURATION;
 
         // Remaining balance is claimable
         claimTotalEther = address(this).balance;
@@ -310,7 +310,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
     /**
      * Allows an account to claim ether during the claiming period
      */
-    function withdraw() public only_at_stage(Stages.Dissolved) only_during_claiming_period only_token_holder {
+    function withdraw() public only_at_stage(Stages.Executed) only_during_withdraw_period only_token_holder {
         Balance storage b = allocated[msg.sender];
         uint weight = b.drpu + _convertDrpsWeight(b.drps);
 
@@ -319,7 +319,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
         b.drps = 0;
 
         // Transfer amount
-        uint amountToTransfer = weight / claimTotalWeight * claimTotalEther;
+        uint amountToTransfer = weight * claimTotalEther / claimTotalWeight;
         msg.sender.transfer(amountToTransfer);
     }
 
@@ -334,7 +334,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
      * @param _from The account or contract that send the transaction
      * @param _value The value of tokens that where received
      */
-    function onTokensReceived(address _token, address _from, uint _value) internal only_at_stage(Stages.Deployed) only_accepted_token(_token) {
+    function onTokensReceived(address _token, address _from, uint _value) internal only_during_claiming_period only_accepted_token(_token) {
         require(_token == msg.sender, "f:onTokensReceived;e:only_receiving_token");
 
         // Allocate tokens
@@ -360,7 +360,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
      * Allows the owner to retrieve ether from the contract that was not claimed 
      * within the claiming period.
      */
-    function retrieveEther() public only_owner only_after_claiming_period {
+    function retrieveEther() public only_owner only_after_withdraw_period {
         selfdestruct(msg.sender);
     }
 

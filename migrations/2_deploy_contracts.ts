@@ -30,7 +30,7 @@ const deployTestArtifactsAsync = async (deployer: Truffle.Deployer, accounts: st
     MockDRPSToken.address, 
     MockDRPUToken.address, 
     {
-      value: web3.utils.toWei('9.123456', 'ether')
+      value: web3.utils.toWei('2509.123456', 'ether')
     });
 
   let mockDRPSTokenInstance = await MockDRPSToken.deployed();

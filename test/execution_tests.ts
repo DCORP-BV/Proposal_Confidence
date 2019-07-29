@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { advanceTimeAndBlockAsync } from './helpers/evm';
 import { 
   MockDcorpProxyInstance, 
   MockTokenInstance, 
@@ -62,9 +63,7 @@ contract('Dissolvement Proposal (Execution)', ([
     balance: 18000
   };
 
-  // All token holders
-  const tokenholders = drpsTokenholders.concat(drpuTokenholders);
-
+  let prevProxyBalance: BigNumber;
   let prevProxyInstance: MockDcorpProxyInstance;
   let dissolvementProposalInstance: DcorpDissolvementProposalInstance;
   let drpsTokenInstance: MockTokenInstance;
@@ -101,7 +100,11 @@ contract('Dissolvement Proposal (Execution)', ([
       excludedDrpuTokenholder.account, excludedDrpuTokenholder.balance));
 
     prevProxyInstance = await prevProxyInstanceTask;
+    let prevProxyBalanceTask = web3.eth.getBalance(
+      prevProxyInstance.address);
+      
     dissolvementProposalInstance = await dissolvementProposalInstanceTask;
+    prevProxyBalance = new BigNumber(await prevProxyBalanceTask);
 
     // Accept proposal
     await prevProxyInstance.propose(dissolvementProposalInstance.address);
@@ -114,21 +117,8 @@ contract('Dissolvement Proposal (Execution)', ([
 
 
   // State:Deployed
-  it('Should not be able to execute before the claim period has ended', async (): Promise<void> => {
-
-    // Expect revert
-    await truffleAssert.reverts(
-      dissolvementProposalInstance.execute(), 'm:only_after_claiming_period');
-
-    // Assert
-    let isDissolved = await dissolvementProposalInstance.isDissolved();
-    assert.isFalse(isDissolved, 'Should be in the deploying stage');
-  });
-
-
-  // State:Deployed
   for (let holder of drpsTokenholders) {
-    it(`Should accept ${holder.balance} drps tokens in the deployed state`, async (): Promise<void> => {
+    it(`Should accept and record ${holder.balance} drps tokens in the deployed state`, async (): Promise<void> => {
       let response = await drpsTokenInstance.transfer(
         dissolvementProposalInstance.address, holder.balance, { from: holder.account });
       
@@ -152,7 +142,7 @@ contract('Dissolvement Proposal (Execution)', ([
 
   // State:Deployed
   for (let holder of drpuTokenholders) {
-    it(`Should accept ${holder.balance} drpu tokens in the deployed state`, async (): Promise<void> => {
+    it(`Should accept and record ${holder.balance} drpu tokens in the deployed state`, async (): Promise<void> => {
       let response = await drpuTokenInstance.transfer(
         dissolvementProposalInstance.address, holder.balance, { from: holder.account });
       
@@ -174,4 +164,109 @@ contract('Dissolvement Proposal (Execution)', ([
   }
 
 
+  // State:Deployed
+  it('Should not be able to execute before the claim period has ended', async (): Promise<void> => {
+
+    // Expect revert
+    await truffleAssert.reverts(
+      dissolvementProposalInstance.execute(), 'm:only_after_claiming_period');
+
+    // Assert
+    let isExecuted = await dissolvementProposalInstance.isExecuted();
+    assert.isFalse(isExecuted, 'Should be in the deploying stage');
+  });
+
+
+  // State:Deployed
+  it('Should not accept and record drps tokens after the claiming period', async (): Promise<void> => {
+    let claimingDuration = await dissolvementProposalInstance.CLAIMING_DURATION();
+
+    // Forward to after claiming time
+    await advanceTimeAndBlockAsync(claimingDuration.toNumber());
+
+    let transfer = drpsTokenInstance.transfer(
+      dissolvementProposalInstance.address, excludedDrpsTokenholder.balance, { from: excludedDrpsTokenholder.account });
+
+    // Expect revert
+    await truffleAssert.reverts(
+      transfer, 'm:only_during_claiming_period');
+
+    let balanceInProposal = await dissolvementProposalInstance.balanceOf(
+      drpsTokenInstance.address, excludedDrpsTokenholder.account);
+
+    let balanceInToken = await drpsTokenInstance.balanceOf(
+      excludedDrpsTokenholder.account);
+
+    // Assert
+    balanceInProposal =  new BigNumber(balanceInProposal);
+    balanceInToken =  new BigNumber(balanceInToken);
+
+    assert.isTrue(balanceInProposal.isZero(), 'A drps balance of 0 should be recorded');
+    assert.isTrue(balanceInToken.eq(excludedDrpsTokenholder.balance), `A drps balance of ${excludedDrpsTokenholder.balance} should be recorded`);
+  });
+
+
+  // State:Deployed
+  it('Should not accept and record drpu tokens after the claiming period', async (): Promise<void> => {
+    let transfer = drpuTokenInstance.transfer(
+      dissolvementProposalInstance.address, excludedDrpuTokenholder.balance, { from: excludedDrpuTokenholder.account });
+
+    // Expect revert
+    await truffleAssert.reverts(
+      transfer, 'm:only_during_claiming_period');
+
+    let balanceInProposal = await dissolvementProposalInstance.balanceOf(
+      drpuTokenInstance.address, excludedDrpuTokenholder.account);
+
+    let balanceInToken = await drpuTokenInstance.balanceOf(
+      excludedDrpuTokenholder.account);
+
+    // Assert
+    balanceInProposal =  new BigNumber(balanceInProposal);
+    balanceInToken =  new BigNumber(balanceInToken);
+
+    assert.isTrue(balanceInProposal.isZero(), 'A drpu balance of 0 should be recorded');
+    assert.isTrue(balanceInToken.eq(excludedDrpuTokenholder.balance), `A drpu balance of ${excludedDrpuTokenholder.balance} should be recorded`);
+  });
+
+
+  // State:Deployed -> Executed
+  it('Should be able to execute after the claim period has ended', async (): Promise<void> => {
+
+    // Execute proposal
+    await dissolvementProposalInstance.execute();
+
+    // Assert
+    let isExecuted = await dissolvementProposalInstance.isExecuted();
+    assert.isTrue(isExecuted, 'Should be in the executed stage');
+  });
+
+
+  // State:Executed
+  it('Should have a claimable balance', async (): Promise<void> => {
+    let [claimTotalEther, dissolvementAmount] = await Promise.all([
+      dissolvementProposalInstance.claimTotalEther(), 
+      dissolvementProposalInstance.DISSOLVEMENT_AMOUNT()
+    ]);
+
+    claimTotalEther = new BigNumber(claimTotalEther);
+    dissolvementAmount = new BigNumber(dissolvementAmount);
+
+    // Assert
+    assert.isTrue(claimTotalEther.eq(prevProxyBalance.minus(dissolvementAmount)), 'Incorrect total claimable amount');
+  });
+
+
+  // State:Executed
+  it('Drps token should be locked after executing the proposal', async (): Promise<void> => {
+    let isLocked = await drpsTokenInstance.isLocked();
+    assert.isTrue(isLocked, 'DRPS token should be locked');
+  });
+
+
+  // State:Executed
+  it('Drpu token should be locked after executing the proposal', async (): Promise<void> => {
+    let isLocked = await drpuTokenInstance.isLocked();
+    assert.isTrue(isLocked, 'DRPU token should be locked');
+  });
 });

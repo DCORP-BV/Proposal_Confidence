@@ -106,7 +106,7 @@ contract('Dissolvement Proposal (Deploy)', ([deployer, someExternalAccount, drps
     let sendTransactionTask = web3.eth.sendTransaction({
       to: dissolvementProposalInstance.address, 
       from: someExternalAccount,
-      value: prevProxyBalance.toString()
+      value: prevProxyBalance
     });
 
     // Expect revert
@@ -163,7 +163,7 @@ contract('Dissolvement Proposal (Deploy)', ([deployer, someExternalAccount, drps
     let sendTransactionTask = web3.eth.sendTransaction({
       to: dissolvementProposalInstance.address, 
       from: someExternalAccount,
-      value: prevProxyBalance.toString()
+      value: prevProxyBalance
     });
 
     // Expect revert
