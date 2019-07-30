@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 BigNumber.config({ DECIMAL_PLACES: 0, ROUNDING_MODE: BigNumber.ROUND_DOWN })
 import { advanceTimeAndBlockAsync } from './helpers/evm';
 import { 
+  MockWhitelistInstance,
   MockDcorpProxyInstance, 
   MockTokenInstance, 
   DcorpDissolvementProposalInstance
@@ -17,6 +18,7 @@ const truffleAssert = require('truffle-assertions');
  * #created 24/7/2019
  * #author Frank Bonnet
  */
+const MockWhitelist = artifacts.require('MockWhitelist');
 const MockDcorpProxy = artifacts.require('MockDcorpProxy');
 const MockDRPSToken = artifacts.require('MockDRPSToken');
 const MockDRPUToken = artifacts.require('MockDRPUToken');
@@ -61,6 +63,7 @@ contract('Dissolvement Proposal (Execution)', ([
 
   let claimTotalEther: BigNumber;
   let claimTotalWeight: BigNumber;
+  let whitelistInstance: MockWhitelistInstance;
   let prevProxyInstance: MockDcorpProxyInstance;
   let dissolvementProposalInstance: DcorpDissolvementProposalInstance;
   let drpsTokenInstance: MockTokenInstance;
@@ -71,6 +74,7 @@ contract('Dissolvement Proposal (Execution)', ([
   before(async (): Promise<void> => {
     let dissolvementProposalInstanceTask = DcorpDissolvementProposal.deployed();
     let prevProxyInstanceTask = MockDcorpProxy.deployed();
+    let whitelistInstanceTask = MockWhitelist.deployed();
 
     // Get tokens
     [drpsTokenInstance, drpuTokenInstance] = await Promise.all([
@@ -131,14 +135,65 @@ contract('Dissolvement Proposal (Execution)', ([
 
     claimTotalEther = new BigNumber(await claimTotalEtherTask);
     claimTotalWeight = new BigNumber(await claimTotalWeightTask);
+    whitelistInstance = await whitelistInstanceTask;
   });
 
 
   // State:Executed
   for (let holder of drpsTokenholders) {
-    it(`DRPS account ${holder.account} should be able to withdraw`, async (): Promise<void> => {
+    it(`DRPS account ${holder.account} should not be able to withdraw when not authenticated`, async (): Promise<void> => {
+      let balanceBefore = await dissolvementProposalInstance.balanceOf(
+        drpsTokenInstance.address, holder.account);
+
+      let withdrawTask = dissolvementProposalInstance.withdraw({ 
+        from: holder.account 
+      });
+
+      // Expect revert
+      await truffleAssert.reverts(
+        withdrawTask, 'm:only_authenticated');
+
+      let balanceAfer = await dissolvementProposalInstance.balanceOf(
+        drpsTokenInstance.address, holder.account);
+
+      // Assert
+      assert.isTrue(balanceBefore.eq(balanceAfer), 'Balance should not have changed');
+    });
+  }
+
+
+  // State:Executed
+  for (let holder of drpuTokenholders) {
+    it(`DRPU account ${holder.account} should not be able to withdraw when not authenticated`, async (): Promise<void> => {
+      let balanceBefore = await dissolvementProposalInstance.balanceOf(
+        drpsTokenInstance.address, holder.account);
+
+      let withdrawTask = dissolvementProposalInstance.withdraw({ 
+        from: holder.account 
+      });
+
+      // Expect revert
+      await truffleAssert.reverts(
+        withdrawTask, 'm:only_authenticated');
+
+      let balanceAfer = await dissolvementProposalInstance.balanceOf(
+        drpsTokenInstance.address, holder.account);
+
+      // Assert
+      assert.isTrue(balanceBefore.eq(balanceAfer), 'Balance should not have changed');
+    });
+  }
+
+
+  // State:Executed
+  for (let holder of drpsTokenholders) {
+    it(`DRPS account ${holder.account} should be able to withdraw when authenticated`, async (): Promise<void> => {
       let balanceBefore = new BigNumber(
         await web3.eth.getBalance(holder.account));
+
+      // Add to whitelist
+      await whitelistInstance.add(
+        holder.account, { from: deployer });
 
       // Withdraw
       let result = await dissolvementProposalInstance.withdraw({ 
@@ -165,9 +220,13 @@ contract('Dissolvement Proposal (Execution)', ([
 
   // State:Executed
   for (let holder of drpuTokenholders) {
-    it(`DRPU account ${holder.account} should be able to withdraw`, async (): Promise<void> => {
+    it(`DRPU account ${holder.account} should be able to withdraw when authenticated`, async (): Promise<void> => {
       let balanceBefore = new BigNumber(
         await web3.eth.getBalance(holder.account));
+
+      // Add to whitelist
+      await whitelistInstance.add(
+        holder.account, { from: deployer });
 
       // Withdraw
       let result = await dissolvementProposalInstance.withdraw({ 
@@ -196,28 +255,9 @@ contract('Dissolvement Proposal (Execution)', ([
   it('Should not allow withdraws after the withdraw period', async (): Promise<void> => {
     let withdrawDuration = await dissolvementProposalInstance.WITHDRAW_DURATION();
 
-    // Move to after withdraw period
-    await advanceTimeAndBlockAsync(withdrawDuration.toNumber() + 1);
-
-    let withdrawTask = dissolvementProposalInstance.withdraw({ 
-      from: excludedDrpuTokenholder.account 
-    });
-
-    // Expect revert
-    await truffleAssert.reverts(
-      withdrawTask, 'm:only_during_withdraw_period');
-
-    let balance = await dissolvementProposalInstance.balanceOf(
-      drpuTokenInstance.address, excludedDrpuTokenholder.account);
-
-    // Assert
-    assert.strictEqual(balance.toNumber(), excludedDrpuTokenholder.balance, "Balance should not have changed");
-  });
-
-
-  // State:Executed
-  it('Should not allow withdraws after the withdraw period', async (): Promise<void> => {
-    let withdrawDuration = await dissolvementProposalInstance.WITHDRAW_DURATION();
+    // Add to whitelist
+    await whitelistInstance.add(
+      excludedDrpuTokenholder.account, { from: deployer });
 
     // Move to after withdraw period
     await advanceTimeAndBlockAsync(withdrawDuration.toNumber() + 1);

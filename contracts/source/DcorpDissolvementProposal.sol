@@ -7,6 +7,7 @@ import "./token/retriever/TokenRetriever.sol";
 import "../infrastructure/behaviour/IObservable.sol";
 import "../infrastructure/ownership/IMultiOwned.sol";
 import "../infrastructure/ownership/TransferableOwnership.sol";
+import "../infrastructure/authentication/IAuthenticator.sol";
 
 /**
  * @title Dcorp Dissolvement Proposal
@@ -39,11 +40,14 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
     // Settings
     uint public constant CLAIMING_DURATION = 60 days;
     uint public constant WITHDRAW_DURATION = 60 days;
-    uint public constant DISSOLVEMENT_AMOUNT = 1000 ether;
+    uint public constant DISSOLVEMENT_AMOUNT = 1888 ether; // +- 355000 euro
 
     // Alocated balances
     mapping (address => Balance) private allocated;
     address[] private allocatedIndex;
+
+    // Whitelist
+    IAuthenticator public authenticator;
 
     // Tokens
     IToken public drpsToken;
@@ -61,6 +65,15 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
     uint public claimDeadline;
     uint public withdrawDeadline;
     
+
+    /**
+     * Require that the sender is authentcated
+     */
+    modifier only_authenticated() {
+        require(authenticator.authenticate(msg.sender), "m:only_authenticated");
+        _;
+    }
+
 
     /**
      * Require that the contract is in `_stage` 
@@ -152,12 +165,14 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
     /**
      * Construct the proxy
      *
+     * @param _authenticator Whitelist
      * @param _drpsToken The new security token
      * @param _drpuToken The new utility token
      * @param _prevProxy Proxy accepts and requires ether from the prev proxy
      * @param _dissolvementFund Ether to be used for the dissolvement of DCORP
      */
-    constructor(address _drpsToken, address _drpuToken, address _prevProxy, address payable _dissolvementFund) public {
+    constructor(address _authenticator, address _drpsToken, address _drpuToken, address _prevProxy, address payable _dissolvementFund) public {
+        authenticator = IAuthenticator(_authenticator);
         drpsToken = IToken(_drpsToken);
         drpuToken = IToken(_drpuToken);
         prevProxy = _prevProxy;
@@ -310,7 +325,7 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
     /**
      * Allows an account to claim ether during the claiming period
      */
-    function withdraw() public only_at_stage(Stages.Executed) only_during_withdraw_period only_token_holder {
+    function withdraw() public only_at_stage(Stages.Executed) only_during_withdraw_period only_token_holder only_authenticated {
         Balance storage b = allocated[msg.sender];
         uint weight = b.drpu + _convertDrpsWeight(b.drps);
 
