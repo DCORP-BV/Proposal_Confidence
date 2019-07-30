@@ -43,11 +43,6 @@ contract('Dissolvement Proposal (Execution)', ([
     balance: 400 * Math.pow(10, 8)
   }];
 
-  const excludedDrpsTokenholder = {
-    account: drpsTokenHolderAccount4,
-    balance: 16000 * Math.pow(10, 8)
-  };
-
   const drpuTokenholders = [{
     account: drpuTokenHolderAccount1,
     balance: 18000 * Math.pow(10, 8)
@@ -90,9 +85,6 @@ contract('Dissolvement Proposal (Execution)', ([
         drpsTokenInstance.issue(holder.account, holder.balance));
     }
 
-    tokenIssueTasks.push(drpsTokenInstance.issue(
-      excludedDrpsTokenholder.account, excludedDrpsTokenholder.balance));
-
     for (let holder of drpuTokenholders) {
       tokenIssueTasks.push(
         drpuTokenInstance.issue(holder.account, holder.balance));
@@ -121,6 +113,9 @@ contract('Dissolvement Proposal (Execution)', ([
       await drpuTokenInstance.transfer(
         dissolvementProposalInstance.address, holder.balance, { from: holder.account });
     }
+
+    await drpuTokenInstance.transfer(
+      dissolvementProposalInstance.address, excludedDrpuTokenholder.balance, { from: excludedDrpuTokenholder.account });
 
     // Forward to after claiming time
     let claimingDuration = await dissolvementProposalInstance.CLAIMING_DURATION();
@@ -198,12 +193,78 @@ contract('Dissolvement Proposal (Execution)', ([
 
 
   // State:Executed
-  it('Remaining balance of the proposal should be near to zero', async (): Promise<void> => {
-    let balance = await new BigNumber(
-      await web3.eth.getBalance(dissolvementProposalInstance.address));
+  it('Should not allow withdraws after the withdraw period', async (): Promise<void> => {
+    let withdrawDuration = await dissolvementProposalInstance.WITHDRAW_DURATION();
+
+    // Move to after withdraw period
+    await advanceTimeAndBlockAsync(withdrawDuration.toNumber() + 1);
+
+    let withdrawTask = dissolvementProposalInstance.withdraw({ 
+      from: excludedDrpuTokenholder.account 
+    });
+
+    // Expect revert
+    await truffleAssert.reverts(
+      withdrawTask, 'm:only_during_withdraw_period');
+
+    let balance = await dissolvementProposalInstance.balanceOf(
+      drpuTokenInstance.address, excludedDrpuTokenholder.account);
 
     // Assert
-    let maxBalance = web3.utils.toWei('1', 'kwei'); // Due to rouding rounding remainders
-    assert.isTrue(balance.isLessThanOrEqualTo(maxBalance), 'Balance should be zero');
+    assert.strictEqual(balance.toNumber(), excludedDrpuTokenholder.balance, "Balance should not have changed");
+  });
+
+
+  // State:Executed
+  it('Should not allow withdraws after the withdraw period', async (): Promise<void> => {
+    let withdrawDuration = await dissolvementProposalInstance.WITHDRAW_DURATION();
+
+    // Move to after withdraw period
+    await advanceTimeAndBlockAsync(withdrawDuration.toNumber() + 1);
+
+    let withdrawTask = dissolvementProposalInstance.withdraw({ 
+      from: excludedDrpuTokenholder.account 
+    });
+
+    // Expect revert
+    await truffleAssert.reverts(
+      withdrawTask, 'm:only_during_withdraw_period');
+
+    let balance = await dissolvementProposalInstance.balanceOf(
+      drpuTokenInstance.address, excludedDrpuTokenholder.account);
+
+    // Assert
+    assert.strictEqual(balance.toNumber(), excludedDrpuTokenholder.balance, "Balance should not have changed");
+  });
+
+
+  // State:Executed
+  it('Should allow the owner to destroy the contract after the withdraw period', async (): Promise<void> => {
+    let ownerBalanceBefore = new BigNumber(
+      await web3.eth.getBalance(deployer));
+
+    let proposalBalanceBefore = new BigNumber(
+      await web3.eth.getBalance(dissolvementProposalInstance.address));
+
+    // Retrieve ether
+    let result = await dissolvementProposalInstance.retrieveEther({ 
+      from: deployer 
+    });
+
+    let ownerBalanceAfter = new BigNumber(
+      await web3.eth.getBalance(deployer));
+
+    let proposalBalanceAfter = new BigNumber(
+      await web3.eth.getBalance(dissolvementProposalInstance.address));
+
+    let tx = await web3.eth.getTransaction(result.tx);
+    let gasPrice = new BigNumber(tx.gasPrice);
+    let gasUsed = new BigNumber(result.receipt.gasUsed);
+    let gasCost = gasPrice.multipliedBy(gasUsed);
+
+    // Assert
+    let expectedOwnerBalance = ownerBalanceBefore.plus(proposalBalanceBefore).minus(gasCost);
+    assert.isTrue(ownerBalanceAfter.eq(expectedOwnerBalance), "Proposal balance should be transferred to owner");
+    assert.isTrue(proposalBalanceAfter.isZero(), "Proposal balance should be zero");
   });
 });
