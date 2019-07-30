@@ -9,10 +9,10 @@ const MockDRPUToken = artifacts.require("MockDRPUToken");
 
 // Vars
 const deployingAddress = '0xA96Fd4994168bF4A15aeF72142ac605cF45b6d8e';
-let dissolvementFundAddress = '';
-let drpsTokenAddress = '';
-let drpuTokenAddress = '';
-let prevProxyAddress = '';
+let dissolvementFundAddress = '0xA96Fd4994168bF4A15aeF72142ac605cF45b6d8e';
+let drpsTokenAddress = '0x3e250a4f78410c29cfc39463a81f14a226690eb4';
+let drpuTokenAddress = '0xe30e02f049957e2a5907589e06ba646fb2c321ba';
+let prevProxyAddress = '0x01d5d0108589f3c52fcce6e65503bb6515e66698';
 
 let preDeployAsync = () => Promise.resolve();
 let postDeployAsync = () => Promise.resolve();
