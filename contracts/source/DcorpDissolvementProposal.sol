@@ -85,15 +85,6 @@ contract DcorpDissolvementProposal is TokenObserver, TransferableOwnership, Toke
 
 
     /**
-     * Require that now is past `_timestamp` 
-     */
-    modifier only_after(uint _timestamp) {
-        require(now > _timestamp, "m:only_after");
-        _;
-    }
-
-
-    /**
      * Require `_token` to be one of the drp tokens
      *
      * @param _token The address to test against

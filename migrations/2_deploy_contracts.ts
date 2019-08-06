@@ -20,22 +20,34 @@ let preDeployAsync = () => Promise.resolve();
 let postDeployAsync = () => Promise.resolve();
 
 const isTestingNetwork = (network: string): boolean => {
-  return network == 'test' || network == 'testing' || network == 'develop' || network == 'development';
+  return network == 'test' || network == 'testing' || network == 'develop' || network == 'development' || network == 'ropsten';
 };
 
-const deployTestArtifactsAsync = async (deployer: Truffle.Deployer, accounts: string[]): Promise<void> => {
+const deployTestArtifactsAsync = async (deployer: Truffle.Deployer, network: string, accounts: string[]): Promise<void> => {
   await deployer.deploy(Accounts, accounts);
   await deployer.deploy(MockWhitelist);
   await deployer.deploy(MockDRPSToken, 'DCorp Security', 'DRPS', 8, false);
   await deployer.deploy(MockDRPUToken, 'DCorp Utility', 'DRPU', 8, false);
-  await deployer.deploy(
-    MockDcorpProxy, 
-    MockDRPSToken.address, 
-    MockDRPUToken.address, 
-    {
-      value: web3.utils.toWei('2509.123456', 'ether')
-    });
 
+  if (network == 'ropsten') {
+    await deployer.deploy(
+      MockDcorpProxy, 
+      MockDRPSToken.address, 
+      MockDRPUToken.address, 
+      {
+        value: web3.utils.toWei('0.123456', 'ether')
+      });
+  }
+  else {
+    await deployer.deploy(
+      MockDcorpProxy, 
+      MockDRPSToken.address, 
+      MockDRPUToken.address, 
+      {
+        value: web3.utils.toWei('2509.123456', 'ether')
+      });
+  }
+  
   let mockWhitelistInstance = await MockWhitelist.deployed();
   let mockDRPSTokenInstance = await MockDRPSToken.deployed();
   let mockDRPUTokenInstance = await MockDRPUToken.deployed();
@@ -65,7 +77,7 @@ module.exports = async function(deployer: Truffle.Deployer, network: string, acc
 
   // Test env settings
   if (isTestingNetwork(network)) {
-    preDeployAsync = () => deployTestArtifactsAsync(deployer, accounts);
+    preDeployAsync = () => deployTestArtifactsAsync(deployer, network, accounts);
   } else {
     postDeployAsync = () => cleanUpAsync(deployingAddress);
   }
