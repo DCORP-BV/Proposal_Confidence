@@ -39,7 +39,7 @@ module.exports = {
       timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
       skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
     },
-    mainnet: {
+    main: {
       provider: () => new HDWalletProvider(secret.main, `https://mainnet.infura.io/v3/42603e7e72bf4278ab055f3385efc2de`),
       network_id: 1,       // Mainnet's id
       gas: 5500000,        // Same as test network

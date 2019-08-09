@@ -66,20 +66,11 @@ const deployTestArtifactsAsync = async (deployer: Truffle.Deployer, network: str
   await mockDRPUTokenInstance.registerObserver(prevProxyAddress);
 };
 
-const cleanUpAsync = async (deployingAccount: string): Promise<void> => {
-  let mockDRPSTokenInstance = await MockDRPSToken.deployed();
-  let mockDRPUTokenInstance = await MockDRPUToken.deployed();
-  await mockDRPSTokenInstance.removeOwner(deployingAccount);
-  await mockDRPUTokenInstance.removeOwner(deployingAccount);
-};
-
 module.exports = async function(deployer: Truffle.Deployer, network: string, accounts: string[]): Promise<void> {
 
   // Test env settings
   if (isTestingNetwork(network)) {
     preDeployAsync = () => deployTestArtifactsAsync(deployer, network, accounts);
-  } else {
-    postDeployAsync = () => cleanUpAsync(deployingAddress);
   }
 
   // Deploy

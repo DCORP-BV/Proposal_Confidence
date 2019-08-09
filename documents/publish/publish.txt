@@ -1,0 +1,73 @@
+Summary
+=======
+> Total deployments:   2
+> Final cost:          0.006153768 ETH
+
+
+Starting migrations...
+======================
+> Network name:    'main'
+> Network id:      1
+> Block gas limit: 0x7a121d
+
+
+migrations\1_initial_migration.js
+=================================
+
+   Deploying 'Migrations'
+   ----------------------
+   > transaction hash:    0xe3717eda5f2cd1c9824b9412cac2b361218f57ef08473c271462184ce46c97fa
+   > Blocks: 1            Seconds: 22
+   > contract address:    0x25231B553BD17C71644fd402392853e13f0B3D72
+   > block number:        8315019
+   > block timestamp:     1565335110
+   > account:             0xA96Fd4994168bF4A15aeF72142ac605cF45b6d8e
+   > balance:             2.517686421835825256
+   > gas used:            261393
+   > gas price:           20 gwei
+   > value sent:          0 ETH
+   > total cost:          0.00522786 ETH
+
+   Pausing for 2 confirmations...
+   ------------------------------
+   > confirmation number: 1 (block: 8315020)
+   > confirmation number: 2 (block: 8315021)
+
+   > Saving migration to chain.
+   > Saving artifacts
+   -------------------------------------
+   > Total cost:          0.00522786 ETH
+
+
+migrations\2_deploy_contracts.js
+================================
+
+   Deploying 'DcorpDissolvementProposal'
+   -------------------------------------
+   > transaction hash:    0x31a053a85c5c8e6c0dd5e1d3e13f92b5a9b2c8ca01f004dc788a614a6e6be74a
+   > Blocks: 2            Seconds: 57
+   > contract address:    0xF7821A90613eC5A0a42Ba5627B6FfEB1017838C9
+   > block number:        8315028
+   > block timestamp:     1565335258
+   > account:             0xA96Fd4994168bF4A15aeF72142ac605cF45b6d8e
+   > balance:             2.458136141835825256
+   > gas used:            2935491
+   > gas price:           20 gwei
+   > value sent:          0 ETH
+   > total cost:          0.05870982 ETH
+
+   Pausing for 2 confirmations...
+   ------------------------------
+   > confirmation number: 1 (block: 8315029)
+   > confirmation number: 2 (block: 8315030)
+
+   > Saving migration to chain.
+   > Saving artifacts
+   -------------------------------------
+   > Total cost:          0.05870982 ETH
+
+
+Summary
+=======
+> Total deployments:   2
+> Final cost:          0.06393768 ETH
